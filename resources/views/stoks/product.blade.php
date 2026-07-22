@@ -1,0 +1,340 @@
+<x-layouts.app>
+    <div class="mb-6 flex items-center text-sm">
+        <a href="{{ route('dashboard') }}"
+            class="text-blue-600 dark:text-blue-400 hover:underline">{{ __('Dashboard') }}</a>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mx-2 text-gray-400" fill="none" viewBox="0 0 24 24"
+            stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+        <span class="text-gray-500 dark:text-gray-400">{{ $title }}</span>
+    </div>
+
+    <div class="mb-6 flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ $title }}</h1>
+            <p class="text-gray-600 dark:text-gray-400 mt-1">Manage System {{ $title }}</p>
+        </div>
+        <div class="flex gap-2">
+            @if(auth()->user()->hasPermission('download-' . $tablename))
+            @if (($canDownload ?? true) !== false)
+            <a href="{{ route(strtolower($tablename) . '.export') }}">
+                <x-button type="secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    {{ __('Download Excel') }}
+                </x-button>
+            </a>
+            @endif
+            @endif
+            @if(auth()->user()->hasPermission('create-' . strtolower($tablename)))
+            @if (($canCreate ?? true) !== false)
+            <a href="{{ route(strtolower($tablename) . '.create') }}">
+                <x-button type="primary">{{ __('Create ' . $title) }}</x-button>
+            </a>
+            @endif
+            @endif
+
+            <button type="button" onclick="toggleStokModal(true)" class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg shadow-sm transition-colors duration-150">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                Update Transaksi Stok
+            </button>
+
+
+        </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 p-5">
+            <div class="bg-blue-600 dark:bg-blue-700 rounded-lg p-5 text-white shadow-sm">
+                <p class="text-blue-100 text-sm font-medium uppercase tracking-wider">Stok Saat Ini</p>
+                <h3 class="text-2xl font-bold mt-1">{{$stokSaatIni}}</h3>
+            </div>
+
+            <div class="bg-teal-600 dark:bg-teal-700 rounded-lg p-5 text-white shadow-sm">
+                <p class="text-teal-100 text-sm font-medium uppercase tracking-wider">Stok Masuk</p>
+                <h3 class="text-2xl font-bold mt-1">{{$stokMasuk}}</h3>
+            </div>
+
+            <div class="bg-rose-600 dark:bg-rose-700 rounded-lg p-5 text-white shadow-sm">
+                <p class="text-rose-100 text-sm font-medium uppercase tracking-wider">Stok Keluar</p>
+                <h3 class="text-2xl font-bold mt-1">{{$stokKeluar}}</h3>
+            </div>
+        </div>
+
+
+        <div class="p-4 overflow-x-auto">
+            <table id="dynamic-table" class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-900">
+                    <tr>
+                        
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Produk</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Toko</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tipe</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Jumlah</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tanggal</th>
+                        
+
+                        
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ __('Actions') }}</th>
+                        
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.tailwindcss.min.css">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+
+    <div id="stok-modal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 dark:bg-opacity-80 transition-opacity" onclick="toggleStokModal(false)"></div>
+
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-gray-200 dark:border-gray-700">
+
+                <div class="bg-gray-50 dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="modal-title">
+                        Kelola Stok Produk
+                    </h3>
+                    <button type="button" onclick="toggleStokModal(false)" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-none">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <form action="{{ route('produks.tambahstokstore', $produk) }}" method="POST">
+                    @csrf
+                    <div class="p-6 space-y-4">
+
+                        <div class="bg-blue-50 dark:bg-blue-950/40 p-3 rounded-md border border-blue-200 dark:border-blue-900">
+                            <p class="text-xs text-blue-600 dark:text-blue-400 font-medium uppercase tracking-wider">Produk Terpilih</p>
+                            <p class="text-sm font-bold text-gray-800 dark:text-gray-200 mt-0.5">{{ $produk->name }}</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tipe Transaksi</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <label class="flex items-center justify-center p-3 border rounded-lg cursor-pointer transition-all border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 has-[:checked]:border-teal-500 has-[:checked]:bg-teal-50 dark:has-[:checked]:bg-teal-950/30 has-[:checked]:text-teal-700 dark:has-[:checked]:text-teal-400 font-medium">
+                                    <input type="radio" name="tipe" value="IN" class="sr-only" checked>
+                                    Stok Masuk (IN)
+                                </label>
+                                <label class="flex items-center justify-center p-3 border rounded-lg cursor-pointer transition-all border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 has-[:checked]:border-rose-500 has-[:checked]:bg-rose-50 dark:has-[:checked]:bg-rose-950/30 has-[:checked]:text-rose-700 dark:has-[:checked]:text-rose-400 font-medium">
+                                    <input type="radio" name="tipe" value="OUT" class="sr-only">
+                                    Stok Keluar (OUT)
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="jumlah" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jumlah</label>
+                            <div class="relative mt-1 rounded-md shadow-sm">
+                                <input type="number" min="1" name="jumlah" id="jumlah" required class="block w-full rounded-lg border-gray-300 dark:border-gray-600 pl-4 pr-16 py-2.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="0">
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4">
+                                    <span class="text-gray-500 dark:text-gray-400 sm:text-sm font-semibold bg-gray-100 dark:bg-gray-600 px-2.5 py-1 rounded">
+                                        {{ $produk->satuan ?? 'Pcs' }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        
+
+                    </div>
+
+                    <div class="bg-gray-50 dark:bg-gray-900 px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex flex-row-reverse gap-2">
+                        <button type="submit" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-blue-600 hover:bg-blue-700 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">
+                            Simpan Transaksi
+                        </button>
+                        <button type="button" onclick="toggleStokModal(false)" class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none sm:mt-0 sm:w-auto sm:text-sm">
+                            Batal
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleStokModal(show) {
+            const modal = document.getElementById('stok-modal');
+            if (show) {
+                modal.classList.remove('hidden');
+                document.body.classList.add('overflow-hidden'); // Kunci scroll layar utama
+            } else {
+                modal.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden'); // Lepas kunci scroll
+            }
+        }
+    </script>
+
+    <script>
+        $columnsdata = [
+            @foreach($columns as $column)
+            @if($column["intable"]) {
+                data: '{{ $column["value"] }}'
+            },
+            @endif
+            @endforeach
+            @if($tableaction) {
+                data: 'actions',
+                name: 'actions',
+                orderable: false,
+                searchable: false,
+                className: 'text-right whitespace-nowrap'
+            }
+            @endif
+
+
+        ];
+
+        console.log('$columnsdata:', $columnsdata);
+
+        $(document).ready(function() {
+            $('#dynamic-table').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: {
+                    url: '{{ route("stoks.produk", $produk) }}',
+                    data: function(d) {
+                        const urlParams = new URLSearchParams(window.location.search);
+                        d.produk_id = urlParams.get('produk_id');
+                    }
+                },
+                columns: $columnsdata,
+                order: [
+                    [0, 'desc']
+                ],
+                language: {
+                    search: "_INPUT_",
+                    searchPlaceholder: "Cari " + "{{ $title }}",
+                    lengthMenu: "Perlihatkan _MENU_ data",
+                    info: "Memperlihatkan _START_ sampai _END_ dari _TOTAL_ {{ strtolower($title) }}",
+                    infoEmpty: "tidak ada data {{ strtolower($title) }} ditemukan",
+                    infoFiltered: "(filtered from _MAX_ total {{ strtolower($title) }})",
+                    zeroRecords: "tidak ada data {{ strtolower($title) }} ditemukan",
+                    emptyTable: "tidak ada {{ strtolower($title) }}"
+                },
+                dom: '<"flex flex-col md:flex-row justify-between items-center mb-4"lf>rt<"flex flex-col md:flex-row justify-between items-center mt-4"ip>',
+                pageLength: 10,
+                lengthMenu: [
+                    [10, 25, 50, 100],
+                    [10, 25, 50, 100]
+                ],
+                stripeClasses: ['bg-white dark:bg-gray-800', 'bg-gray-50 dark:bg-gray-900']
+            });
+        });
+    </script>
+
+    <style>
+        /* Table borders and styling */
+        #dynamic-table {
+            border-collapse: separate !important;
+            border-spacing: 0;
+        }
+
+        #dynamic-table thead th {
+            border-bottom: 2px solid #e5e7eb;
+            background-color: #f9fafb;
+        }
+
+        .dark #dynamic-table thead th {
+            border-bottom-color: #374151;
+            background-color: #1f2937;
+        }
+
+        #dynamic-table tbody tr {
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .dark #dynamic-table tbody tr {
+            border-bottom-color: #374151;
+        }
+
+        /* Alternating row colors (striping) */
+        #dynamic-table tbody tr.odd {
+            background-color: #ffffff;
+        }
+
+        #dynamic-table tbody tr.even {
+            background-color: #f9fafb;
+        }
+
+        .dark #dynamic-table tbody tr.odd {
+            background-color: #1f2937;
+        }
+
+        .dark #dynamic-table tbody tr.even {
+            background-color: #111827;
+        }
+
+        #dynamic-table tbody tr:hover {
+            background-color: #e5e7eb !important;
+        }
+
+        .dark #dynamic-table tbody tr:hover {
+            background-color: #374151 !important;
+        }
+
+        #dynamic-table tbody td {
+            border-right: 1px solid #e5e7eb;
+            padding: 12px 24px;
+        }
+
+        .dark #dynamic-table tbody td {
+            border-right-color: #374151;
+        }
+
+        #dynamic-table tbody td:last-child {
+            border-right: none;
+        }
+
+        #dynamic-table thead th {
+            border-right: 1px solid #e5e7eb;
+        }
+
+        .dark #dynamic-table thead th {
+            border-right-color: #374151;
+        }
+
+        #dynamic-table thead th:last-child {
+            border-right: none;
+        }
+
+        /* Action links styling - keep inline */
+        #dynamic-table tbody td a,
+        #dynamic-table tbody td form {
+            display: inline;
+            white-space: nowrap;
+        }
+
+        /* DataTables controls styling */
+        .dataTables_wrapper .dataTables_filter input,
+        .dataTables_wrapper .dataTables_length select {
+            @apply px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100;
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button {
+            @apply px-3 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 mx-1;
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            @apply bg-blue-600 text-white border-blue-600;
+        }
+
+        .dataTables_wrapper .dataTables_info {
+            @apply text-sm text-gray-600 dark:text-gray-400;
+        }
+    </style>
+</x-layouts.app>
