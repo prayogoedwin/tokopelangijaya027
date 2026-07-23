@@ -142,6 +142,7 @@ class KasirController extends Controller
                 'created_by' => auth()->user()->id,
             ]);
         }
+        $timezone = 'Asia/Jakarta';
 
         // penyediain data untuk ditampilkan di modal setelah pembayaran karena tidak bisa langsung dengan relasi
         $penjualan->penjualan_id = $penjualan->id;
@@ -393,40 +394,70 @@ class KasirController extends Controller
     {
 
         if ($request->ajax()) {
+            $timezone = 'Asia/Jakarta'; // Timezone lokal user
+
+            if ($request->filled(['startdate', 'enddate'])) {
+                // Parse tanggal input sebagai waktu WIB
+                $start = Carbon::parse($request->startdate, $timezone)->startOfDay();
+                $end   = Carbon::parse($request->enddate, $timezone)->endOfDay();
+            } else {
+                // Default: Hari ini dalam WIB (dari jam 00:00:00 WIB s/d 23:59:59 WIB)
+                $start = Carbon::now($timezone)->startOfDay();
+                $end   = Carbon::now($timezone)->endOfDay();
+            }
+
+            // Convert Carbon instance ke UTC agar sesuai dengan record di Database
+            $startUtc = $start->setTimezone('UTC')->toDateTimeString();
+            $endUtc   = $end->setTimezone('UTC')->toDateTimeString();
+
+            
+
+
+
             // hanya dari toko yang dipilih di session
             $penjualans = Penjualan::where('penjualans.deleted_at', null)
                 ->where('penjualans.toko_id', session('selected_toko_id'))
-                ->join('tokos', 'penjualans.toko_id', '=', 'tokos.id')
-                ->join('tipe_pembayarans', 'penjualans.tipe_pembayaran_id', '=', 'tipe_pembayarans.id')
-                ->select(
-                    'penjualans.*',
-                    'tokos.name as toko',
-                    'tipe_pembayarans.name as tipe_pembayaran'
-                )
-                ->get();
+                ->whereBetween('penjualans.created_at', [
+                    $startUtc,
+                    $endUtc
+                ])
+                ->with(['details.produk', 'tipePembayaran', 'toko']);
             // dd($penjualans);
 
             return DataTables::of($penjualans)
-                ->addColumn('total', function ($penjualan) {
-                    return $penjualan->total_harus_dibayar;
+                ->addColumn('tanggal', function ($penjualan) {
+                    return Carbon::parse($penjualan->created_at)->translatedFormat('d M Y H:i:s');
                 })
-                ->addColumn('diskon', function ($penjualan) {
-                    return $penjualan->diskon_percentage;
+                
+                ->addColumn('tipe_pembayaran', function ($penjualan) {
+                    return $penjualan->tipePembayaran->name ?? 'N/A';
                 })
-                ->addColumn('kembalian', function ($penjualan) {
-                    return $penjualan->kembalian;
+                
+                
+                ->addColumn('produks', function ($penjualan) {
+                    $produkNames = $penjualan->details->map(function ($detail) {
+                        return   '[' . $detail->produk->sku . '] ' . $detail->produk->name . ' - ' . $detail->jumlah . ' ' . $detail->satuan;
+                    })->toArray();
+                    return implode('<br>', $produkNames);
+                })
+                ->filterColumn('produks', function ($query, $keyword) {
+                    $query->whereHas('details.produk', function ($q) use ($keyword) {
+                        $q->where('name', 'like', "%{$keyword}%")
+                            ->orWhere('sku', 'like', "%{$keyword}%");
+                    });
                 })
                 ->addColumn('action', function ($penjualan) {
                     return '<a href="' . route('kasir.kasir_showpenjualan', $penjualan->id) . '" class="text-green-600 dark:text-green-400 hover:underline mr-3">Detail</a>';
                 })
-
+                ->rawColumns(['produks', 'action']) // Agar HTML di kolom action tidak di-escape
                 ->make(true);
         }
 
 
-        
+        $startdate = $request->startdate ?? Carbon::now()->toDateString();
+        $enddate = $request->enddate ?? Carbon::now()->toDateString();
 
-        return view('kasir.kasironly_penjualan');
+        return view('kasir.kasironly_penjualan', compact('startdate', 'enddate'));
     }
 
     public function kasir_showpenjualan(Penjualan $penjualan)
@@ -444,29 +475,30 @@ class KasirController extends Controller
     public function kasir_ceklaporan(Request $request)
     {
 
-        // 1. Default dates: Today
-        $startdate = Carbon::now()->toDateString();
-        $enddate = Carbon::now()->toDateString();
+        $timezone = 'Asia/Jakarta';
 
-        // 2. Override if custom date request exists
-        if ($request->has(['startdate', 'enddate']) && $request->startdate != '' && $request->enddate != '') {
-            // It's safer to parse using Carbon to ensure standard Y-m-d formatting
-            $startdate = Carbon::parse($request->startdate)->toDateString();
-            $enddate = Carbon::parse($request->enddate)->toDateString();
-        }
+        if ($request->filled(['startdate', 'enddate'])) {
+                // Parse tanggal input sebagai waktu WIB
+                $start = Carbon::parse($request->startdate, $timezone)->startOfDay();
+                $end   = Carbon::parse($request->enddate, $timezone)->endOfDay();
+            } else {
+                // Default: Hari ini dalam WIB (dari jam 00:00:00 WIB s/d 23:59:59 WIB)
+                $start = Carbon::now($timezone)->startOfDay();
+                $end   = Carbon::now($timezone)->endOfDay();
+            }
+
+            // Convert Carbon instance ke UTC agar sesuai dengan record di Database
+            $startUtc = $start->setTimezone('UTC')->toDateTimeString();
+            $endUtc   = $end->setTimezone('UTC')->toDateTimeString();
 
         $totalOmset = 0;
         $totalPendapatan = 0;
 
         $penjualandetails = PenjualanDetail::with(['produk.toko'])
-            ->whereHas('penjualan', function ($query) use ($startdate, $enddate) {
+            ->whereHas('penjualan', function ($query) use ($startUtc, $endUtc) {
                 // Filter based on the parent sale's transaction date
-                $query->whereBetween('created_at', [
-                    $startdate . ' 00:00:00',
-                    $enddate . ' 23:59:59'
-                ])
-                    ->where('deleted_at', null)
-                ;
+                $query->whereBetween('created_at', [$startUtc, $endUtc])
+                    ->where('toko_id', session('selected_toko_id'));
             });
 
         $jumlahTransaksi = $penjualandetails->distinct('penjualan_id')->count('penjualan_id');
@@ -530,13 +562,13 @@ class KasirController extends Controller
 
 
 
-        // dd($request->all(), $startdate, $enddate);
+        // dd($request->all(), $start->toDateString(), $end->toDateString(), $totalOmset, $totalPendapatan, $jumlahTransaksi, $totalBarangTerjual, $stokHabisCount, $totalStok, $totalAsset);
 
 
 
         $tokos = Toko::where('deleted_at', null)->get();
-        $pagedata['startdate'] = $startdate;
-        $pagedata['enddate'] = $enddate;
+        $pagedata['startdate'] = $start->toDateString();
+        $pagedata['enddate'] = $end->toDateString();
 
 
 

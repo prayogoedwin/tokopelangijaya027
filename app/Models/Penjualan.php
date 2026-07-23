@@ -2,6 +2,10 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+
+use App\Models\User;
+
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -82,5 +86,15 @@ class Penjualan extends Model
     public function details(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(PenjualanDetail::class);
+    }
+
+    public function kasir(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    protected function serializeDate(\DateTimeInterface $date)
+    {
+        return Carbon::instance($date)->setTimezone('Asia/Jakarta')->format('Y-m-d H:i:s');
     }
 }

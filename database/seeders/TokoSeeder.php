@@ -22,16 +22,7 @@ class TokoSeeder extends Seeder
                 'status_toko' => 'Pusat',
                 'tipe_kasir' => 'Invoice',
             ],
-            [
-                'name' => "Toko Cabang 1",
-                'kode_toko' => "CBG-002",
-                'pass_toko' => "12345678",
-                'alamat' => "Jl.Semarang Solo No.10, Jakarta",
-                'telp' => '089123456789',
-                'status_toko' => 'Cabang',
-                'tipe_kasir' => 'POS',
-
-            ],
+            
 
         ];
 

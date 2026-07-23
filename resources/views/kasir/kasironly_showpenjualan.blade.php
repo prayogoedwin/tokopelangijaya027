@@ -137,6 +137,8 @@
                     <span class="text-gray-500 dark:text-gray-400">Detail Penjualan</span>
                 </div>
 
+
+
                 <div class="col-lg-6  text-gray-500 px-4 py-2 text-right">
                     <a href="{{ route('kasir.kasir_cekpenjualan') }}">
                         <button class="btn text-blue-600 dark:text-blue-400 hover:underline">{{ __('Kembali') }}</button>
@@ -144,6 +146,7 @@
 
                 </div>
             </div>
+
 
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div class="p-6">
@@ -220,7 +223,7 @@
                                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                     <tr>
                                         <th class="px-4 py-3">Nama Produk</th>
-                                        
+
                                         <th class="px-4 py-3 text-center">Jumlah</th>
                                         <th class="px-4 py-3 text-center">Satuan</th>
                                         <th class="px-4 py-3 text-center">Sub Total</th>
@@ -232,7 +235,7 @@
                                         <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">
                                             {{ $detail->produk->name ?? $detail->produk_id }}
                                         </td>
-                                        
+
                                         <td class="px-4 py-3 text-center">
                                             {{ number_format($detail->jumlah, 0) }}
                                         </td>
@@ -257,10 +260,14 @@
                             </table>
                         </div>
                     </div>
+                    <div class="mt-6 flex justify-end space-x-4">
+                        <a href="{{ route('penjualans.cetaknota', $penjualan->id) }}" target="_blank" class="inline-block bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300">
+                            <i class="fas fa-print mr-2"></i> Cetak Nota
+                        </a>
 
+                    </div>
                 </div>
             </div>
-        </div>
     </main>
 </body>
 

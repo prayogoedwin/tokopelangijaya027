@@ -37,7 +37,7 @@ class LaporanPenjualanController extends Controller
                 ['name' => 'harga_beli', 'value' => 'harga_beli',  'title' => 'Harga Beli', 'type' => 'number', 'intable' => true],
                 ['name' => 'harga_jual', 'value' => 'harga_jual',  'title' => 'Harga Jual', 'type' => 'number', 'intable' => true],
                 ['name' => 'terjual', 'value' => 'terjual',  'title' => 'Terjual', 'type' => 'number', 'intable' => true],
-                
+
 
             ],
         ];
@@ -49,28 +49,37 @@ class LaporanPenjualanController extends Controller
     {
         $pagedata = $this->getPagedata();
 
-        // 1. Default dates: Start and end of the current month
-        $startdate = Carbon::now()->startOfMonth()->toDateString(); // e.g., 2026-05-01
-        $enddate = Carbon::now()->endOfMonth()->toDateString();     // e.g., 2026-05-31
 
-        // 2. Override if custom date request exists
-        if ($request->has(['startdate', 'enddate']) && $request->startdate != '' && $request->enddate != '') {
-            // It's safer to parse using Carbon to ensure standard Y-m-d formatting
-            $startdate = Carbon::parse($request->startdate)->toDateString();
-            $enddate = Carbon::parse($request->enddate)->toDateString();
+        $timezone = 'Asia/Jakarta'; // Timezone lokal user
+
+        if ($request->filled(['startdate', 'enddate'])) {
+            // Parse tanggal input sebagai waktu WIB
+            $start = Carbon::parse($request->startdate, $timezone)->startOfDay();
+            $end   = Carbon::parse($request->enddate, $timezone)->endOfDay();
+        } else {
+            // Default: Hari ini dalam WIB (dari jam 00:00:00 WIB s/d 23:59:59 WIB)
+            $start = Carbon::now($timezone)->startOfDay();
+            $end   = Carbon::now($timezone)->endOfDay();
         }
+
+        // Convert Carbon instance ke UTC agar sesuai dengan record di Database
+        $startUtc = $start->setTimezone('UTC')->toDateTimeString();
+        $endUtc   = $end->setTimezone('UTC')->toDateTimeString();
+
+
+
 
         $totalOmset = 0;
         $totalPendapatan = 0;
 
         $penjualandetails = PenjualanDetail::with(['produk.toko'])
-            ->whereHas('penjualan', function ($query) use ($startdate, $enddate) {
+            ->whereHas('penjualan', function ($query) use ($startUtc, $endUtc) {
                 // Filter based on the parent sale's transaction date
                 $query->whereBetween('created_at', [
-                    $startdate . ' 00:00:00',
-                    $enddate . ' 23:59:59'
+                    $startUtc,
+                    $endUtc
                 ])
-                ->where('deleted_at', null)
+                    ->where('deleted_at', null)
                 ;
             });
 
@@ -134,7 +143,7 @@ class LaporanPenjualanController extends Controller
 
 
 
-        // dd($request->all(), $startdate, $enddate);
+        // dd($request->all(), $startUtc, $endUtc);
 
         if ($request->ajax()) {
 
@@ -148,8 +157,8 @@ class LaporanPenjualanController extends Controller
 
 
         $tokos = Toko::where('deleted_at', null)->get();
-        $pagedata['startdate'] = $startdate;
-        $pagedata['enddate'] = $enddate;
+        $pagedata['startdate'] = $start->toDateString();
+        $pagedata['enddate'] = $end->toDateString();
 
 
 

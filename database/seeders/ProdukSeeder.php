@@ -136,7 +136,7 @@ class ProdukSeeder extends Seeder
 
         foreach ($data2 as $item) {
             \App\Models\Produk::create([
-                'toko_id' => 2,
+                'toko_id' => 1,
                 'name' => $item['name'],
                 'kategori_id' => $item['category_id'],
                 'satuan' => $item['satuan'],

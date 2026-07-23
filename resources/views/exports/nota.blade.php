@@ -61,7 +61,8 @@
     <table style="width: 100%">
         <tr>
             <td>No. Nota: {{ $penjualan->no_invoice }}</td>
-            <td class="text-right">Tgl: {{ $penjualan->created_at->format('d/m/Y H:i') }}</td>
+            <!-- timezone Jakarta -->
+            <td class="text-right">Tgl: {{ \Carbon\Carbon::parse($penjualan->created_at)->setTimezone('Asia/Jakarta')->format('d/m/Y H:i') }}</td>
         </tr>
         <tr>
             <td>Customer: </td>
