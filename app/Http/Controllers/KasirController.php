@@ -426,7 +426,7 @@ class KasirController extends Controller
 
             return DataTables::of($penjualans)
                 ->addColumn('tanggal', function ($penjualan) {
-                    return Carbon::parse($penjualan->created_at)->translatedFormat('d M Y H:i:s');
+                    return $penjualan->created_at->setTimezone('Asia/Jakarta')->format('Y-m-d H:i:s');
                 })
                 
                 ->addColumn('tipe_pembayaran', function ($penjualan) {
@@ -438,7 +438,8 @@ class KasirController extends Controller
                     $produkNames = $penjualan->details->map(function ($detail) {
                         return   '[' . $detail->produk->sku . '] ' . $detail->produk->name . ' - ' . $detail->jumlah . ' ' . $detail->satuan;
                     })->toArray();
-                    return implode('<br>', $produkNames);
+                    $content = implode('<br>', $produkNames);
+                    return '<div style="max-height: 100px; overflow-y: auto; white-space: nowrap;">' . $content . '</div>';
                 })
                 ->filterColumn('produks', function ($query, $keyword) {
                     $query->whereHas('details.produk', function ($q) use ($keyword) {

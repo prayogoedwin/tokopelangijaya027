@@ -30,7 +30,7 @@
                 <x-button type="warning">{{ __('Cetak') }}</x-button>
             </a>
             <a href="{{ route($tablename . '.index') }}">
-                <x-button type="secondary">{{ __('Back') }}</x-button>
+                <x-button type="secondary">{{ __('Kembali') }}</x-button>
             </a>
         </div>
     </div>
