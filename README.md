@@ -2,6 +2,7 @@
 
 ---
 
+
 ## Introduction
 
 Our Laravel 12 + Blade starter kit provides the typical functionality found in the Laravel Starter kits, but with a few key differences:
