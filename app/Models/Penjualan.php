@@ -95,6 +95,6 @@ class Penjualan extends Model
 
     protected function serializeDate(\DateTimeInterface $date)
     {
-        return Carbon::instance($date)->setTimezone('Asia/Jakarta')->format('Y-m-d H:i:s');
+        return Carbon::instance($date)->format('Y-m-d H:i:s');
     }
 }

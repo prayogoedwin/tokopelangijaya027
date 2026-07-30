@@ -84,24 +84,19 @@ class PenjualanController extends Controller
         // dd($request->headers->all());
 
         if ($request->ajax()) {
-            $timezone = 'Asia/Jakarta'; // Timezone lokal user
-
             if ($request->filled(['startdate', 'enddate'])) {
-                // Parse tanggal input sebagai waktu WIB
-                $start = Carbon::parse($request->startdate, $timezone)->startOfDay();
-                $end   = Carbon::parse($request->enddate, $timezone)->endOfDay();
+                $start = Carbon::parse($request->startdate)->startOfDay();
+                $end   = Carbon::parse($request->enddate)->endOfDay();
             } else {
-                // Default: Hari ini dalam WIB (dari jam 00:00:00 WIB s/d 23:59:59 WIB)
-                $start = Carbon::now($timezone)->startOfDay();
-                $end   = Carbon::now($timezone)->endOfDay();
+                $start = Carbon::now()->startOfDay();
+                $end   = Carbon::now()->endOfDay();
             }
 
-            // Convert Carbon instance ke UTC agar sesuai dengan record di Database
-            $startUtc = $start->setTimezone('UTC')->toDateTimeString();
-            $endUtc   = $end->setTimezone('UTC')->toDateTimeString();
-
             $penjualans = Penjualan::whereNull('penjualans.deleted_at')
-                ->whereBetween('penjualans.created_at', [$startUtc, $endUtc]);
+                ->whereBetween('penjualans.created_at', [
+                    $start->toDateTimeString(),
+                    $end->toDateTimeString(),
+                ]);
 
 
             if ($request->has('toko') && $request->toko != '') {
@@ -116,7 +111,7 @@ class PenjualanController extends Controller
 
             return DataTables::of($penjualans)
                 ->addColumn('tanggal', function ($penjualan) {
-                    return $penjualan->created_at->setTimezone('Asia/Jakarta')->format('Y-m-d H:i:s');
+                    return $penjualan->created_at->format('Y-m-d H:i:s');
                 })
                 ->addColumn('toko', function ($penjualan) {
                     return $penjualan->toko->name;
@@ -169,8 +164,8 @@ class PenjualanController extends Controller
 
         $tokos = Toko::get();
 
-        $startdate = $request->startdate ?? Carbon::now('Asia/Jakarta')->toDateString();
-        $enddate = $request->enddate ?? Carbon::now('Asia/Jakarta')->toDateString();
+        $startdate = $request->startdate ?? Carbon::now()->toDateString();
+        $enddate = $request->enddate ?? Carbon::now()->toDateString();
 
         return view('penjualans.index', $pagedata, compact('tokos', 'startdate', 'enddate'));
     }

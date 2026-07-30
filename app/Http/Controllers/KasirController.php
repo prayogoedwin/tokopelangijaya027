@@ -142,7 +142,6 @@ class KasirController extends Controller
                 'created_by' => auth()->user()->id,
             ]);
         }
-        $timezone = 'Asia/Jakarta';
 
         // penyediain data untuk ditampilkan di modal setelah pembayaran karena tidak bisa langsung dengan relasi
         $penjualan->penjualan_id = $penjualan->id;
@@ -394,39 +393,27 @@ class KasirController extends Controller
     {
 
         if ($request->ajax()) {
-            $timezone = 'Asia/Jakarta'; // Timezone lokal user
-
             if ($request->filled(['startdate', 'enddate'])) {
-                // Parse tanggal input sebagai waktu WIB
-                $start = Carbon::parse($request->startdate, $timezone)->startOfDay();
-                $end   = Carbon::parse($request->enddate, $timezone)->endOfDay();
+                $start = Carbon::parse($request->startdate)->startOfDay();
+                $end   = Carbon::parse($request->enddate)->endOfDay();
             } else {
-                // Default: Hari ini dalam WIB (dari jam 00:00:00 WIB s/d 23:59:59 WIB)
-                $start = Carbon::now($timezone)->startOfDay();
-                $end   = Carbon::now($timezone)->endOfDay();
+                $start = Carbon::now()->startOfDay();
+                $end   = Carbon::now()->endOfDay();
             }
-
-            // Convert Carbon instance ke UTC agar sesuai dengan record di Database
-            $startUtc = $start->setTimezone('UTC')->toDateTimeString();
-            $endUtc   = $end->setTimezone('UTC')->toDateTimeString();
-
-            
-
-
 
             // hanya dari toko yang dipilih di session
             $penjualans = Penjualan::where('penjualans.deleted_at', null)
                 ->where('penjualans.toko_id', session('selected_toko_id'))
                 ->whereBetween('penjualans.created_at', [
-                    $startUtc,
-                    $endUtc
+                    $start->toDateTimeString(),
+                    $end->toDateTimeString(),
                 ])
                 ->with(['details.produk', 'tipePembayaran', 'toko']);
             // dd($penjualans);
 
             return DataTables::of($penjualans)
                 ->addColumn('tanggal', function ($penjualan) {
-                    return $penjualan->created_at->setTimezone('Asia/Jakarta')->format('Y-m-d H:i:s');
+                    return $penjualan->created_at->format('Y-m-d H:i:s');
                 })
                 
                 ->addColumn('tipe_pembayaran', function ($penjualan) {
@@ -476,29 +463,24 @@ class KasirController extends Controller
     public function kasir_ceklaporan(Request $request)
     {
 
-        $timezone = 'Asia/Jakarta';
-
         if ($request->filled(['startdate', 'enddate'])) {
-                // Parse tanggal input sebagai waktu WIB
-                $start = Carbon::parse($request->startdate, $timezone)->startOfDay();
-                $end   = Carbon::parse($request->enddate, $timezone)->endOfDay();
-            } else {
-                // Default: Hari ini dalam WIB (dari jam 00:00:00 WIB s/d 23:59:59 WIB)
-                $start = Carbon::now($timezone)->startOfDay();
-                $end   = Carbon::now($timezone)->endOfDay();
-            }
+            $start = Carbon::parse($request->startdate)->startOfDay();
+            $end   = Carbon::parse($request->enddate)->endOfDay();
+        } else {
+            $start = Carbon::now()->startOfDay();
+            $end   = Carbon::now()->endOfDay();
+        }
 
-            // Convert Carbon instance ke UTC agar sesuai dengan record di Database
-            $startUtc = $start->setTimezone('UTC')->toDateTimeString();
-            $endUtc   = $end->setTimezone('UTC')->toDateTimeString();
+        $startLocal = $start->toDateTimeString();
+        $endLocal   = $end->toDateTimeString();
 
         $totalOmset = 0;
         $totalPendapatan = 0;
 
         $penjualandetails = PenjualanDetail::with(['produk.toko'])
-            ->whereHas('penjualan', function ($query) use ($startUtc, $endUtc) {
+            ->whereHas('penjualan', function ($query) use ($startLocal, $endLocal) {
                 // Filter based on the parent sale's transaction date
-                $query->whereBetween('created_at', [$startUtc, $endUtc])
+                $query->whereBetween('created_at', [$startLocal, $endLocal])
                     ->where('toko_id', session('selected_toko_id'));
             });
 

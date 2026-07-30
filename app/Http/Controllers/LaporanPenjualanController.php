@@ -50,34 +50,26 @@ class LaporanPenjualanController extends Controller
         $pagedata = $this->getPagedata();
 
 
-        $timezone = 'Asia/Jakarta'; // Timezone lokal user
-
         if ($request->filled(['startdate', 'enddate'])) {
-            // Parse tanggal input sebagai waktu WIB
-            $start = Carbon::parse($request->startdate, $timezone)->startOfDay();
-            $end   = Carbon::parse($request->enddate, $timezone)->endOfDay();
+            $start = Carbon::parse($request->startdate)->startOfDay();
+            $end   = Carbon::parse($request->enddate)->endOfDay();
         } else {
-            // Default: Hari ini dalam WIB (dari jam 00:00:00 WIB s/d 23:59:59 WIB)
-            $start = Carbon::now($timezone)->startOfDay();
-            $end   = Carbon::now($timezone)->endOfDay();
+            $start = Carbon::now()->startOfDay();
+            $end   = Carbon::now()->endOfDay();
         }
 
-        // Convert Carbon instance ke UTC agar sesuai dengan record di Database
-        $startUtc = $start->setTimezone('UTC')->toDateTimeString();
-        $endUtc   = $end->setTimezone('UTC')->toDateTimeString();
-
-
-
+        $startLocal = $start->toDateTimeString();
+        $endLocal   = $end->toDateTimeString();
 
         $totalOmset = 0;
         $totalPendapatan = 0;
 
         $penjualandetails = PenjualanDetail::with(['produk.toko'])
-            ->whereHas('penjualan', function ($query) use ($startUtc, $endUtc) {
+            ->whereHas('penjualan', function ($query) use ($startLocal, $endLocal) {
                 // Filter based on the parent sale's transaction date
                 $query->whereBetween('created_at', [
-                    $startUtc,
-                    $endUtc
+                    $startLocal,
+                    $endLocal
                 ])
                     ->where('deleted_at', null)
                 ;
@@ -143,7 +135,7 @@ class LaporanPenjualanController extends Controller
 
 
 
-        // dd($request->all(), $startUtc, $endUtc);
+        // dd($request->all(), $startLocal, $endLocal);
 
         if ($request->ajax()) {
 
