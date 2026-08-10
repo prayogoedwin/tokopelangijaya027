@@ -360,7 +360,10 @@
         });
 
         // Process payment and clean cart
+        let isSubmittingPayment = false;
         document.getElementById('processPaymentBtn').addEventListener('click', async () => {
+            if (isSubmittingPayment) return;
+
             if (cart.length === 0) {
                 alert('Cart is empty. Add some products first.');
                 return;
@@ -384,7 +387,10 @@
             const paymentMethodSelect = document.getElementById('paymentMethod');
             const paymentMethodId = paymentMethodSelect.value;
 
-
+            isSubmittingPayment = true;
+            const processBtn = document.getElementById('processPaymentBtn');
+            processBtn.disabled = true;
+            processBtn.textContent = 'Memproses...';
 
             // Create a form and submit
             const form = document.createElement('form');
@@ -408,6 +414,7 @@
                 payment_method_id: paymentMethodId,
                 payment_amount: payment,
                 change_amount: change,
+                transaction_id: (crypto.randomUUID ? crypto.randomUUID() : ('txn-' + Date.now() + '-' + Math.random().toString(36).slice(2))),
                 cart_items: JSON.stringify(cart.map(item => ({
                     id: item.id,
                     name: item.name,

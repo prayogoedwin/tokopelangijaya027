@@ -645,7 +645,10 @@
         paymentAmountInput.addEventListener('input', calculateChange);
 
         // Process payment
+        let isSubmittingPayment = false;
         document.getElementById('processPaymentBtn').addEventListener('click', () => {
+            if (isSubmittingPayment) return;
+
             if (cart.length === 0) {
                 alert('Cart Kosong. Tambahkan beberapa produk terlebih dahulu.');
                 return;
@@ -679,6 +682,11 @@
             const discountAmount = subtotal * (discountPercent / 100);
             const totalAfterDiscount = subtotal - discountAmount;
 
+            isSubmittingPayment = true;
+            const processBtn = document.getElementById('processPaymentBtn');
+            processBtn.disabled = true;
+            processBtn.textContent = 'Memproses...';
+
             // Create a form and submit
             const form = document.createElement('form');
             form.method = 'POST';
@@ -701,6 +709,7 @@
                 payment_method_id: paymentMethodId,
                 payment_amount: payment,
                 change_amount: change,
+                transaction_id: (crypto.randomUUID ? crypto.randomUUID() : ('txn-' + Date.now() + '-' + Math.random().toString(36).slice(2))),
                 cart_items: JSON.stringify(cart.map(item => ({
                     id: item.id,
                     name: item.name,

@@ -10,6 +10,7 @@ use App\Models\TipePembayaran;
 use App\Models\Toko;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Yajra\DataTables\DataTables;
 
 class KasirController extends Controller
@@ -79,8 +80,6 @@ class KasirController extends Controller
 
     public function processPayment(Request $request)
     {
-        // dd($request->all()); 
-
         $validated = $request->validate([
             'cart_items' => 'required|json',
             'subtotal_before_discount' => 'required|numeric',
@@ -90,73 +89,61 @@ class KasirController extends Controller
             'total_payment' => 'required|numeric',
             'payment_amount' => 'required|numeric',
             'change_amount' => 'required|numeric',
-            // 'transaction_id' => 'required|string'
-        ]);
-        $cartItems = json_decode($request->cart_items, true);
-
-        // $fillable = [
-        //     'customer_id',
-        //     'toko_id',
-        //     'no_invoice',
-        //     'tipe_pembayaran_id',
-        //     'total_pembelian',
-        //     'diskon_percentage',
-        //     'diskon_nominal',
-        //     'total_harus_dibayar',
-        //     'dibayar',
-        //     'kembalian',
-        //     'keterangan',
-
-        //     'created_by',
-        //     'updated_by',
-        //     'deleted_by',
-        // ];
-        // dd("here");
-
-        // Create penjualan record
-        $penjualan = Penjualan::create([
-            'toko_id' =>  session('selected_toko_id'),
-            // 'no_invoice' => nanti di model
-            'tipe_pembayaran_id' => $validated['payment_method_id'],
-            'diskon_percentage' => $validated['discount_percent'],
-            'diskon_nominal' => $validated['discount_amount'],
-            'total_pembelian' => $validated['subtotal_before_discount'],
-            'total_harus_dibayar' => $validated['total_payment'],
-            'dibayar' => $validated['payment_amount'],
-            'kembalian' => $validated['change_amount'],
-            'keterangan' => 'completed',
-
-            'created_by' => auth()->user()->id,
+            'transaction_id' => 'required|string|max:64',
         ]);
 
-        foreach ($cartItems as $item) {
-            PenjualanDetail::create([
-                'penjualan_id' => $penjualan->id,
-                'produk_id' => $item['id'],
-                'harga_jual' => $item['price'],
-                'harga_beli' => $item['harga_beli'],
-                'jumlah' => $item['quantity'],
-                'satuan' => $item['unit'],
-                'sub_total' => $item['total'],
+        $cacheKey = 'kasir_payment:' . auth()->id() . ':' . $validated['transaction_id'];
 
+        // Tolak request ganda (double click / retry) dengan transaction_id yang sama
+        if (! Cache::add($cacheKey, 0, now()->addMinutes(30))) {
+            $existingId = Cache::get($cacheKey);
+            if ($existingId) {
+                $existing = Penjualan::find($existingId);
+                if ($existing) {
+                    return $this->paymentSuccessRedirect('kasir.dashboard', $existing);
+                }
+            }
+
+            return to_route('kasir.dashboard')
+                ->with('status', 'Transaksi sudah diproses sebelumnya.');
+        }
+
+        try {
+            $cartItems = json_decode($request->cart_items, true);
+
+            $penjualan = Penjualan::create([
+                'toko_id' => session('selected_toko_id'),
+                'tipe_pembayaran_id' => $validated['payment_method_id'],
+                'diskon_percentage' => $validated['discount_percent'],
+                'diskon_nominal' => $validated['discount_amount'],
+                'total_pembelian' => $validated['subtotal_before_discount'],
+                'total_harus_dibayar' => $validated['total_payment'],
+                'dibayar' => $validated['payment_amount'],
+                'kembalian' => $validated['change_amount'],
+                'keterangan' => 'completed',
                 'created_by' => auth()->user()->id,
             ]);
+
+            foreach ($cartItems as $item) {
+                PenjualanDetail::create([
+                    'penjualan_id' => $penjualan->id,
+                    'produk_id' => $item['id'],
+                    'harga_jual' => $item['price'],
+                    'harga_beli' => $item['harga_beli'],
+                    'jumlah' => $item['quantity'],
+                    'satuan' => $item['unit'],
+                    'sub_total' => $item['total'],
+                    'created_by' => auth()->user()->id,
+                ]);
+            }
+
+            Cache::put($cacheKey, $penjualan->id, now()->addMinutes(30));
+        } catch (\Throwable $e) {
+            Cache::forget($cacheKey);
+            throw $e;
         }
 
-        // penyediain data untuk ditampilkan di modal setelah pembayaran karena tidak bisa langsung dengan relasi
-        $penjualan->penjualan_id = $penjualan->id;
-        $penjualan->tipe_pembayaran = $penjualan->tipePembayaran;
-        $penjualan->tipe_pembayaran_name = $penjualan->tipePembayaran->name;
-        $penjualan->toko_telp = $penjualan->toko->telp;
-        $penjualan->details = $penjualan->details;
-        foreach ($penjualan->details as $detail) {
-            $detail->name = $detail->produk->name;
-        }
-
-        return to_route('kasir.dashboard')
-            ->with('status', 'Berhasil Melakukan Transaksi: ')
-            ->with('show_payment_modal', true)
-            ->with('transaction_data', $penjualan);
+        return $this->paymentSuccessRedirect('kasir.dashboard', $penjualan);
     }
 
     // Fitur exit toko (clear session tapi tidak logout)
@@ -230,8 +217,6 @@ class KasirController extends Controller
 
     public function kasir_processPayment(Request $request)
     {
-        // dd($request->all()); 
-
         $validated = $request->validate([
             'cart_items' => 'required|json',
             'subtotal_before_discount' => 'required|numeric',
@@ -241,86 +226,76 @@ class KasirController extends Controller
             'total_payment' => 'required|numeric',
             'payment_amount' => 'required|numeric',
             'change_amount' => 'required|numeric',
-            // 'transaction_id' => 'required|string'
-        ]);
-        $cartItems = json_decode($request->cart_items, true);
-
-        // $fillable = [
-        //     'customer_id',
-        //     'toko_id',
-        //     'no_invoice',
-        //     'tipe_pembayaran_id',
-        //     'total_pembelian',
-        //     'diskon_percentage',
-        //     'diskon_nominal',
-        //     'total_harus_dibayar',
-        //     'dibayar',
-        //     'kembalian',
-        //     'keterangan',
-
-        //     'created_by',
-        //     'updated_by',
-        //     'deleted_by',
-        // ];
-        // dd("here");
-
-        // Create penjualan record
-        $penjualan = Penjualan::create([
-            'toko_id' =>  session('selected_toko_id'),
-            // 'no_invoice' => nanti di model
-            // 'tipe_pembayaran_id' => $validated['discount_percent'],
-            'tipe_pembayaran_id' => $validated['payment_method_id'],
-            'diskon_percentage' => $validated['discount_percent'],
-            'diskon_nominal' => $validated['discount_amount'],
-            'total_pembelian' => $validated['subtotal_before_discount'],
-            'total_harus_dibayar' => $validated['total_payment'],
-            'dibayar' => $validated['payment_amount'],
-            'kembalian' => $validated['change_amount'],
-            'keterangan' => 'completed',
-
-            'created_by' => auth()->user()->id,
+            'transaction_id' => 'required|string|max:64',
         ]);
 
-        // dd($penjualan);
+        $cacheKey = 'kasir_payment:' . auth()->id() . ':' . $validated['transaction_id'];
 
-        // $fillable = [
-        //     'penjualan_id',
-        //     'produk_id',
-        //     'harga_beli',
-        //     'harga_jual',
-        //     'jumlah',
-        //     'satuan',
-        //     'sub_total',
-        //     'created_by',
-        //     'updated_by',
-        //     'deleted_by',
-        // ];
-        // Create penjualan details
-        foreach ($cartItems as $item) {
-            PenjualanDetail::create([
-                'penjualan_id' => $penjualan->id,
-                'produk_id' => $item['id'],
-                'harga_jual' => $item['price'],
-                'harga_beli' => $item['harga_beli'],
-                'jumlah' => $item['quantity'],
-                'satuan' => $item['unit'],
-                'sub_total' => $item['total'],
+        if (! Cache::add($cacheKey, 0, now()->addMinutes(30))) {
+            $existingId = Cache::get($cacheKey);
+            if ($existingId) {
+                $existing = Penjualan::find($existingId);
+                if ($existing) {
+                    return $this->paymentSuccessRedirect('kasir.kasir_dashboard', $existing);
+                }
+            }
 
-                'created_by' => auth()->user()->id,
-            ]);
+            return to_route('kasir.kasir_dashboard')
+                ->with('status', 'Transaksi sudah diproses sebelumnya.');
         }
 
-        // penyediain data untuk ditampilkan di modal setelah pembayaran karena tidak bisa langsung dengan relasi
+        try {
+            $cartItems = json_decode($request->cart_items, true);
+
+            $penjualan = Penjualan::create([
+                'toko_id' => session('selected_toko_id'),
+                'tipe_pembayaran_id' => $validated['payment_method_id'],
+                'diskon_percentage' => $validated['discount_percent'],
+                'diskon_nominal' => $validated['discount_amount'],
+                'total_pembelian' => $validated['subtotal_before_discount'],
+                'total_harus_dibayar' => $validated['total_payment'],
+                'dibayar' => $validated['payment_amount'],
+                'kembalian' => $validated['change_amount'],
+                'keterangan' => 'completed',
+                'created_by' => auth()->user()->id,
+            ]);
+
+            foreach ($cartItems as $item) {
+                PenjualanDetail::create([
+                    'penjualan_id' => $penjualan->id,
+                    'produk_id' => $item['id'],
+                    'harga_jual' => $item['price'],
+                    'harga_beli' => $item['harga_beli'],
+                    'jumlah' => $item['quantity'],
+                    'satuan' => $item['unit'],
+                    'sub_total' => $item['total'],
+                    'created_by' => auth()->user()->id,
+                ]);
+            }
+
+            Cache::put($cacheKey, $penjualan->id, now()->addMinutes(30));
+        } catch (\Throwable $e) {
+            Cache::forget($cacheKey);
+            throw $e;
+        }
+
+        return $this->paymentSuccessRedirect('kasir.kasir_dashboard', $penjualan);
+    }
+
+    private function paymentSuccessRedirect(string $route, Penjualan $penjualan)
+    {
+        $penjualan->load(['tipePembayaran', 'toko', 'details.produk']);
+
         $penjualan->penjualan_id = $penjualan->id;
         $penjualan->tipe_pembayaran = $penjualan->tipePembayaran;
         $penjualan->tipe_pembayaran_name = $penjualan->tipePembayaran->name;
-        $penjualan->details = $penjualan->details;
         $penjualan->toko_telp = $penjualan->toko->telp;
+        $penjualan->details = $penjualan->details;
         foreach ($penjualan->details as $detail) {
             $detail->name = $detail->produk->name;
         }
 
-        return to_route('kasir.kasir_dashboard')
+        return to_route($route)
             ->with('status', 'Berhasil Melakukan Transaksi: ')
             ->with('show_payment_modal', true)
             ->with('transaction_data', $penjualan);
