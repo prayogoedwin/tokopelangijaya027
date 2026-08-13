@@ -61,25 +61,31 @@ class LaporanPenjualanController extends Controller
         $startLocal = $start->toDateTimeString();
         $endLocal   = $end->toDateTimeString();
 
-        $totalOmset = 0;
-        $totalPendapatan = 0;
+        $tokoId = $request->filled('toko') ? $request->toko : null;
+
+        $penjualanQuery = Penjualan::whereBetween('created_at', [$startLocal, $endLocal]);
+        if ($tokoId) {
+            $penjualanQuery->where('toko_id', $tokoId);
+        }
+
+        $jumlahTransaksi = (clone $penjualanQuery)->count();
+        // Omset = total yang benar-benar ditagih di invoice (sama seperti History)
+        $totalOmset = (clone $penjualanQuery)->sum('total_harus_dibayar');
 
         $penjualandetails = PenjualanDetail::with(['produk.toko'])
-            ->whereHas('penjualan', function ($query) use ($startLocal, $endLocal) {
-                // Filter based on the parent sale's transaction date
-                $query->whereBetween('created_at', [
-                    $startLocal,
-                    $endLocal
-                ])
-                    ->where('deleted_at', null)
-                ;
-            });
+            ->whereHas('penjualan', function ($query) use ($startLocal, $endLocal, $tokoId) {
+                $query->whereBetween('created_at', [$startLocal, $endLocal]);
+                if ($tokoId) {
+                    $query->where('toko_id', $tokoId);
+                }
+            })
+            ->get();
 
-        $jumlahTransaksi = $penjualandetails->distinct('penjualan_id')->count('penjualan_id');
-
-
-
-        $penjualandetails = $penjualandetails->get();
+        // Pendapatan dari harga beli/jual saat transaksi (bukan harga katalog sekarang)
+        $totalPendapatan = $penjualandetails->sum(function ($detail) {
+            return ($detail->harga_jual - $detail->harga_beli) * $detail->jumlah;
+        });
+        $totalBarangTerjual = $penjualandetails->sum('jumlah');
 
         $produks = Produk::where('deleted_at', null)
             ->withSum(['stoks as total_masuk' => function ($query) {
@@ -89,11 +95,8 @@ class LaporanPenjualanController extends Controller
                 $query->where('tipe', 'OUT');
             }], 'jumlah');
 
-        if ($request->has('toko') && $request->toko != '') {
-            $toko = $request->toko;
-            $produks->whereHas('toko', function ($query) use ($toko) {
-                $query->where('id', $toko);
-            });
+        if ($tokoId) {
+            $produks->where('toko_id', $tokoId);
         }
 
         $produks = $produks->get();
@@ -103,7 +106,8 @@ class LaporanPenjualanController extends Controller
         $totalAsset = 0;
         $stokHabisCount = 0;
         foreach ($produks as $produk) {
-            $terjual = $penjualandetails->where('produk_id', $produk->id)->sum('jumlah');
+            $detailsProduk = $penjualandetails->where('produk_id', $produk->id);
+            $terjual = $detailsProduk->sum('jumlah');
             $harga_beli = $produk->harga_beli;
             $harga_jual = $produk->harga_jual;
             $stok_saat_ini = $produk->total_masuk - $produk->total_keluar;
@@ -112,7 +116,6 @@ class LaporanPenjualanController extends Controller
             $totalAsset += $stok_saat_ini * $produk->harga_beli;
 
             if ($stok_saat_ini <= 0) {
-                // dd($produk, $stok_saat_ini);
                 $stokHabisCount++;
             }
 
@@ -124,13 +127,7 @@ class LaporanPenjualanController extends Controller
                 'terjual' => $terjual,
                 'stok_saat_ini' => $stok_saat_ini,
             ];
-
-
-            $totalOmset += $harga_jual * $terjual;
-            $totalPendapatan += ($harga_jual - $harga_beli) * $terjual;
         }
-
-        $totalBarangTerjual = $penjualandetails->sum('jumlah');
 
 
 
