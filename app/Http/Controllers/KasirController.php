@@ -215,7 +215,7 @@ class KasirController extends Controller
         return to_route('kasir.kasir_dashboard')->with('status', 'Berhasil memilih toko: ' . $toko->name);
     }
 
-    public function kasir_f(Request $request)
+    public function kasir_processPayment(Request $request)
     {
         $validated = $request->validate([
             'cart_items' => 'required|json',
