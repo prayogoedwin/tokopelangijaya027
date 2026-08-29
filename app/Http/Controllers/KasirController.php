@@ -215,7 +215,7 @@ class KasirController extends Controller
         return to_route('kasir.kasir_dashboard')->with('status', 'Berhasil memilih toko: ' . $toko->name);
     }
 
-    public function kasir_processPayment(Request $request)
+    public function kasir_f(Request $request)
     {
         $validated = $request->validate([
             'cart_items' => 'required|json',
@@ -290,6 +290,7 @@ class KasirController extends Controller
         $penjualan->tipe_pembayaran = $penjualan->tipePembayaran;
         $penjualan->tipe_pembayaran_name = $penjualan->tipePembayaran->name;
         $penjualan->toko_telp = $penjualan->toko->telp;
+        $penjualan->toko_name = $penjualan->toko->name;
         $penjualan->details = $penjualan->details;
         foreach ($penjualan->details as $detail) {
             $detail->name = $detail->produk->name;

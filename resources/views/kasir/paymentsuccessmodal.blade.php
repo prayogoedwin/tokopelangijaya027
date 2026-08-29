@@ -240,7 +240,7 @@
             {
                 type: 'raw',
                 format: 'plain',
-                data: 'TOKO PELANGI JAYA' + '\n'
+                data: (toko.name || '') + '\n'
             },
             {
                 type: 'raw',
@@ -412,7 +412,7 @@
         console.log(transaction);
         // Membuka format monospace WhatsApp dengan ```
         let message = "```\n";
-        message += `*TOKO PELANGI JAYA*\n`;
+        message += `**${transaction.toko_name || ''}**\n`;
         message += `${'='.repeat(32)}\n`;
         message += `Nota: ${transaction.no_invoice}\n`;
         message += `Tgl : ${new Date().toLocaleString('id-ID')}\n`;
