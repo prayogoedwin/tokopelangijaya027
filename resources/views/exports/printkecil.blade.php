@@ -92,7 +92,7 @@
 
 <body>
     <div class="header">
-        <h2>Toko Nouval {{ $toko->status_toko }}</h2>
+        <h2>Toko Pelangi Jaya {{ $toko->status_toko }}</h2>
         <p>{{ $toko->alamat }} <br> Telp: {{ $toko->telp }}</p>
     </div>
 
