@@ -108,10 +108,17 @@ return [
         'permission' => null,
         'children' => [
             [
-                'title' => 'Instalasi Printer',
+                'title' => 'Instalasi Printer QZ Tray',
                 'icon' => 'fas-print',
                 'route' => 'docs.printer', 
                 'active' => 'docs/printer*',
+                'permission' => null
+            ],
+            [
+                'title' => 'Instalasi Printer Android Thermer',
+                'icon' => 'fas-print',
+                'route' => 'docs.androidprinter', 
+                'active' => 'docs/androidprinter*',
                 'permission' => null
             ],
         ],

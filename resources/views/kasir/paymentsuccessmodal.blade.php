@@ -60,11 +60,19 @@
                 <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 
                     <button type="button" id="printThermalBtn"
-                        class="inline-flex items-center justify-center w-full px-4 py-2.5 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-150">
+                        class="inline-flex items-center justify-center w-full px-4 py-2.5 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-150 overflow-hidden">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
                         </svg>
-                        Print Thermal (80mm)
+                        Print Thermal QZ(80mm)
+                    </button>
+
+                    <button type="button" id="printThermalAndroidBtn"
+                        class="inline-flex items-center justify-center w-full px-2 py-2.5 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-150">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                        </svg>
+                        Print Thermal Android(80mm)
                     </button>
 
                     <button type="button" id="printInvoiceBtn"
@@ -197,6 +205,22 @@
         // Open the PDF in a new tab
         const pdfUrl = `{{ route('penjualans.cetaknota', ['penjualan' => ':penjualan_id']) }}`.replace(':penjualan_id', currentTransactionData.penjualan_id);
         window.open(pdfUrl, '_blank');
+    });
+
+    document.getElementById('printThermalAndroidBtn').addEventListener('click', function() {
+        if (!currentTransactionData || !currentTransactionData.penjualan_id) {
+            alert('Transaction data not found!');
+            return;
+        }
+
+        //debug
+        // const androidPrintUrljson = `{{ route('android.print.receipt', ['penjualan' => ':penjualan_id']) }}`.replace(':penjualan_id', currentTransactionData.penjualan_id);
+        // window.open(androidPrintUrljson, '_blank');
+
+
+        // Open the Android print scheme URL in a new tab
+        const androidPrintUrl = `my.bluetoothprint.scheme://{{ route('android.print.receipt', ['penjualan' => ':penjualan_id']) }}`.replace(':penjualan_id', currentTransactionData.penjualan_id);
+        window.open(androidPrintUrl, '_blank');
     });
 
     document.getElementById('printThermalBtn').addEventListener('click', function() {

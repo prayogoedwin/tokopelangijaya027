@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\AndroidPrintController;
 use App\Http\Controllers\KasirController;
 use App\Http\Controllers\KategoriController;
 use App\Http\Controllers\LaporanPenjualanController;
@@ -27,6 +28,15 @@ Route::get('dashboard', [DashboardController::class, 'index'])
 Route::get('docs/instalasi-printer', function () {
     return view('docs.instalasiprinter');
 })->name('docs.printer');
+
+Route::get('docs/instalasi-printer-android', function () {
+    return view('docs.testandroidprint');
+})->name('docs.androidprinter');
+Route::get('/androidprint/test/', [AndroidPrintController::class, 'test'])
+    ->name('android.print.test');
+
+Route::get('/androidprint/receipt/{penjualan}', [AndroidPrintController::class, 'receipt'])
+    ->name('android.print.receipt');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('settings/profile', [Settings\ProfileController::class, 'edit'])->name('settings.profile.edit');
